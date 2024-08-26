@@ -1,11 +1,18 @@
 #include "server.hpp"
+#include "Handler.hpp"
 
-int main()
+int main(int ac, char **av)
 {
 	Server server;
+	(void)av;
+	if (ac != 3)
+		return 1;
 	try{
+		server.setPort(av[1]);
+		server.setPassword(av[2]);
 		server.start();
 		int processConnection;
+		Handler::registerCommands();
 		while (true)
 		{
 			processConnection = epoll_wait(server.getEpFD() , server.getEvents(), 64, -1);
@@ -13,7 +20,7 @@ int main()
 				if (server.getEventFd(i) == server.getServerSocket())
 					server.lobby();
 				else
-					server.processData(i);
+					server.processData(i);	
 			}
 		}
 	}

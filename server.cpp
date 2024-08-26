@@ -1,9 +1,63 @@
 #include "server.hpp"
+#include "Handler.hpp"
+
+std::vector<Client *> Server::clientPool;
+std::vector<Channel *> Server::channelPool;
+std::string Server::message; 
+int Server::port;
+std::string Server::password;
+int Server::epfd;
 
 int Server::getEpFD(){return epfd;}
 epoll_event *Server::getEvents(){return events;}
 int Server::getEventFd(int i){return events[i].data.fd;}
 int Server::getServerSocket(){return serverSocket;}
+std::string Server::getPassword(){return password;}
+std::vector<Channel *> Server::getChannelPool(){return channelPool;}
+
+Channel* Server::getChannel(std::string name){
+	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+	{
+		std::cout << (*it)->getName() << std::endl;
+		if ((*it)->getName() == name)
+			return *it;
+	}
+	return NULL;
+}
+
+ bool Server::checkChannelName(std::string name){
+	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+	{
+		if ((*it)->getName() == name)
+			return true;
+	}
+	return false;
+ }
+
+void Server::setPassword(char *p){
+	password = p;	
+}
+
+void Server::setPort(char *p){
+	if (strlen(p) > 4)
+			throw std::runtime_error("Port too big!");
+	for (int i = 0; p[i]; i++)
+	{
+		if (!isdigit(p[i]))
+			throw std::runtime_error("Port needs to be numerical!");
+	}
+	port = atoi(p);
+ }
+
+Client* Server::findClientBySocket(int clientSocket)
+{
+    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
+    {
+        if ((*it)->getSocket() == clientSocket)
+            return *it;
+    }
+    return 0;
+}
 
 void Server::start()
 {
@@ -13,7 +67,7 @@ void Server::start()
 	
 	sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(6667);
+    serverAddress.sin_port = htons(port);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(Server::serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
@@ -41,125 +95,84 @@ void Server::lobby()
 	clientPool.push_back(newClient);
 	event.data.fd = clientSocket;
 	epoll_ctl(epfd, EPOLL_CTL_ADD, clientSocket, &event);
-
-	char buffer[1024];
-	std::string name;
-	while (name.empty()) {
-        recv(clientSocket, buffer, 1024, 0);
-        std::string data(buffer);
-        size_t nickPos = data.find("NICK ");
-        if (nickPos != std::string::npos)
-        {
-            name = data.substr(nickPos + 5);
-            size_t endPos = name.find_first_of("\r\n");
-            if (endPos != std::string::npos) {
-                name = name.substr(0, endPos);
-            }
-        }
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
-            if ((*it)->getNick() == name) {
-                name = "";
-                break;
-            }
-        }
-	}
-	newClient->setNick(name);
-	std::cout << newClient->getNick() << " has joined the server" << std::endl;
 }
 
 void Server::processData(int i)
 {
 	char buffer[1024];
-    int clientSocket = events[i].data.fd;
-    int bytesReceived = recv(clientSocket, buffer, 1024, 0);
-    if (bytesReceived <= 0) {
-        close(clientSocket);
-        epoll_ctl(epfd, EPOLL_CTL_DEL, clientSocket, NULL);
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
-            if ((*it)->getSocket() == clientSocket) {
-                std::cout << "Client disconnected: " << (*it)->getNick() << std::endl;
-                delete *it;
-                clientPool.erase(it);
-                break;
-            }
-        }
-    } else {
-        std::string message(buffer);
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
-            if ((*it)->getSocket() == clientSocket) {
-                processCommands(clientSocket, message);
-				message.clear();
-                break;
-            }
-        }
+	sleep(0.1);
+    int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
+	if (bytesReceived <= 0)
+	{
+		if (bytesReceived == 0)
+			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\n" << std::endl;
+		else
+			std::cout << "Error receiving data from recv\n" << std::endl;
+		close(events[i].data.fd);
+	}
+	else {
+		std::vector<std::string> commands = splitString(buffer, "\r\n");
+        for (std::vector<std::string>::iterator it = commands.begin(); it != commands.end(); it++) {
+            std::string message = *it;
+			std::cout << message << std::endl;
+			Handler::processCommands(findClientBySocket(events[i].data.fd), message);
+		}
+		memset(buffer, 0, sizeof(buffer));
 	}
 }
 
-std::string Server::extractChannelName(const std::string& message) {
-    size_t hashPos = message.find("#");
-    if (hashPos == std::string::npos) {
-        return "";
-    }
-    size_t spacePos = message.find("\r\n", hashPos);
-    if (spacePos == std::string::npos) {
-        return message.substr(hashPos + 1);
-    } else {
-        return message.substr(hashPos, spacePos - hashPos);
+std::string Server::extractChannelName(const std::string message) {
+    
+	std::string unknown;
+	if (message.find("PRIVMSG") != std::string::npos)
+		unknown = message.substr(message.find("PRIVMSG") + 8, message.find(':') - 1);
+	else
+		unknown = message.substr(message.find("JOIN") + 5, message.find(':') - 1);
+	unknown.erase(std::remove(unknown.begin(), unknown.end(), ' '), unknown.end());
+	return unknown.substr(0, unknown.find(":"));
+}
+
+void Server::sendMessageToChannel(const std::string& nick, const std::string& message)
+{
+	std::string channelName = extractChannelName(message);
+	std::string user;
+	std::string host;
+    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
+		if ((*it)->getNick() == nick){
+			user = (*it)->getUsername();
+			host = (*it)->getHost();
+		}
+	}
+    std::string fullMessage = ":" + nick + "!" + user + "@" + host + " " + message + "\r\n";
+	std::cout << fullMessage << std::endl;
+	if (channelName.find("#") != std::string::npos)
+	{
+		for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
+			if ((*it)->isInChannel(channelName) && (*it)->getNick() != nick) {
+				send((*it)->getSocket(), fullMessage.c_str(), fullMessage.size(), 0);
+			}
+		}
+	}
+	else {
+			for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
+				if ((*it)->getNick() == channelName) {
+					send((*it)->getSocket(), fullMessage.c_str(), fullMessage.size(), 0);
+				}
+		}
+	}
+}
+
+void Server::makeOperator(const std::string& channel, const std::string& nick) {
+    std::string command = "MODE " + channel + " +o " + nick + "\r\n";
+    for (std::vector<Client *>::iterator it = getClientPool().begin(); it != getClientPool().end(); it++) {
+        if ((*it)->isInChannel(channel)) {
+            send((*it)->getSocket(), command.c_str(), command.size(), 0);
+        }
     }
 }
 
-void Server::processCommands(int clientSocket, std::string& message)
-{
-	std::string command = message.substr(0, message.find(" "));
-	if (command == "JOIN"){
-        std::string channelName = extractChannelName(message);
-        std::string nick;
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
-            if ((*it)->getSocket() == clientSocket) {
-                nick = (*it)->getNick();
-                (*it)->joinChannel(channelName);
-                break;
-            }
-        }
-        std::string joinNotification = ":" + nick + " JOIN :" + channelName + "\r\n";
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
-            if ((*it)->isInChannel(channelName)) {
-                send((*it)->getSocket(), joinNotification.c_str(), joinNotification.size(), 0);
-            }
-        }
-		std::string namesList = ":MyServer 353 " + nick + " = " + channelName + " :";
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
-            if ((*it)->isInChannel(channelName)) {
-                namesList += (*it)->getNick() + " ";
-            }
-        }
-        namesList += "\r\n";
-        for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
-            if ((*it)->isInChannel(channelName)) {
-                send((*it)->getSocket(), namesList.c_str(), namesList.size(), 0);
-            }
-        }
-	} else if (command.find("PRIVMSG") != std::string::npos) {
-		size_t commandPos = message.find("PRIVMSG") + 7;
-        size_t channelPos = message.find(" ", commandPos);
-        size_t messagePos = message.find(":", channelPos);
-		size_t endOfMessagePos = message.find("\r\n", messagePos);
-        if (messagePos == std::string::npos) {
-            return;
-        }
-        std::string channelName = message.substr(channelPos + 1, messagePos - channelPos - 2);
-      	std::string msg = message.substr(messagePos + 1, endOfMessagePos - messagePos - 1);
-		std::string nick;
-		for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
-		{
-			if ((*it)->getSocket() == clientSocket)
-				nick = (*it)->getNick();
-		}
-        sendMessageToChannel(nick, channelName, msg);
-    }
-} 
 
-void Server::sendMessageToChannel(const std::string& nick, const std::string& channelName, const std::string& message)
+void Server::userLeaving(const std::string& nick)
 {
 	std::string user;
 	std::string host;
@@ -168,10 +181,59 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& ch
 		if ((*it)->getNick() == nick)
 			host = (*it)->getHost();
 	}
-    std::string fullMessage = ":" + nick + "!" + user + "@" + host + " PRIVMSG " + channelName + " :" + message + "\r\n";
-    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
-        if ((*it)->isInChannel(channelName) && (*it)->getNick() != nick) {
-            send((*it)->getSocket(), fullMessage.c_str(), fullMessage.size(), 0);
+    std::string fullMessage = ":" + nick + "!" + user + "@" + host + " QUIT" + "Leaving" + "\r\n";
+}
+
+
+void Server::clientPoolErase(int clientSocket)
+{
+	for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
+		if ((*it)->getSocket() == clientSocket) {
+			clientPool.erase(it);
+			return ;
+		}
+	}
+}
+
+bool Server::isNickInUse(std::string name)
+{
+    for (std::vector<Client*>::const_iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
+        if ((*it)->getNick() == name) {
+            return true;
         }
     }
+    return false;
+}
+
+std::vector<std::string> Server::splitString(const std::string &str, const std::string &delimiter) {
+    std::vector<std::string> tokens;
+    size_t start = 0;
+    size_t end = str.find(delimiter);
+
+    while (end != std::string::npos) {
+        tokens.push_back(str.substr(start, end - start));
+        start = end + delimiter.length();
+        end = str.find(delimiter, start);
+    }
+
+    tokens.push_back(str.substr(start));
+    return tokens;
+}
+
+void Server::addToChannelPool(Channel *channel){
+	channelPool.push_back(channel);
+}
+
+void Server::sendToAllClients(std::string message){
+	for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
+		send((*it)->getSocket(), message.c_str(), message.size(), 0);
+}
+
+Client *Server::findClientByName(std::string name){
+	for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
+	{
+		if ((*it)->getNick() == name)
+			return (*it);
+	}
+	return NULL;
 }
