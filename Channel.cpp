@@ -11,7 +11,6 @@ void Channel::removeFromList(std::string message){
 
 void Channel::sendToAll(std::string message)
 {
-	std::cout << "sendToAll" << std::endl;
 	std::vector<Client *>tempPool = Server::getClientPool();
 	for (std::vector<Client *>::iterator it = tempPool.begin(); it != tempPool.end(); it++)
 	{
@@ -32,7 +31,6 @@ std::string Channel::retrieveNamesList(std::string clientName){
         formattedNamesList.erase(formattedNamesList.size() - 1);
     }
 	formattedNamesList += "\r\n";
-	std::cout << formattedNamesList << std::endl;
     return formattedNamesList;
 }
 
@@ -77,4 +75,34 @@ bool Channel::isOperator(std::string name){
 
 void Channel::removeOnNamesList(std::string name){
 	namesList.erase(std::remove(namesList.begin(), namesList.end(), name),namesList.end());
+}
+
+void Channel::addToInviteList(std::string nick){
+	inviteList.push_back(nick);
+}
+
+void Channel::removeFromInviteList(std::string nick)
+{
+	inviteList.erase(std::remove(inviteList.begin(), inviteList.end(), nick),inviteList.end());
+}
+
+void Channel::switchInviteMode(bool mode){
+	invite_only = mode;
+}
+
+bool Channel::isInviteOnly(){
+	return invite_only;
+}
+
+bool Channel::isUserInInviteList(std::string nick){
+	if (std::find(inviteList.begin(), inviteList.end(), nick) != inviteList.end())
+		return true;
+	return false;
+}
+
+bool Channel::isUserOnThisChannel(std::string name)
+{
+	if (std::find(namesList.begin(), namesList.end(), name) != namesList.end())
+		return true;
+	return false;
 }

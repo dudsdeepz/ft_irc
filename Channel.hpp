@@ -12,11 +12,17 @@ class Channel{
 		std::string name_;
 		std::vector<std::string >operators;
 		std::vector<std::string >namesList;
+		std::vector<std::string >inviteList;
 		int limit;
 		bool invite_only;
 		std::string password;
 		std::string topic;
 	public:
+		bool isUserInInviteList(std::string nick);
+		void switchInviteMode(bool mode);
+		bool isInviteOnly();
+		void removeFromInviteList(std::string nick);
+		void addToInviteList(std::string nick);
 		void sendToAll(std::string message);
 		void removeFromList(std::string message);
 		std::string getTopic();

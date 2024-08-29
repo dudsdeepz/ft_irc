@@ -18,7 +18,6 @@ std::vector<Channel *> Server::getChannelPool(){return channelPool;}
 Channel* Server::getChannel(std::string name){
 	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
 	{
-		std::cout << (*it)->getName() << std::endl;
 		if ((*it)->getName() == name)
 			return *it;
 	}
@@ -129,6 +128,8 @@ std::string Server::extractChannelName(const std::string message) {
 	else
 		unknown = message.substr(message.find("JOIN") + 5, message.find(':') - 1);
 	unknown.erase(std::remove(unknown.begin(), unknown.end(), ' '), unknown.end());
+	unknown.erase(std::remove(unknown.begin(), unknown.end(), '\r'), unknown.end());
+	unknown.erase(std::remove(unknown.begin(), unknown.end(), '\n'), unknown.end());
 	return unknown.substr(0, unknown.find(":"));
 }
 
@@ -144,7 +145,6 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
 		}
 	}
     std::string fullMessage = ":" + nick + "!" + user + "@" + host + " " + message + "\r\n";
-	std::cout << fullMessage << std::endl;
 	if (channelName.find("#") != std::string::npos)
 	{
 		for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
@@ -204,6 +204,18 @@ bool Server::isNickInUse(std::string name)
     }
     return false;
 }
+
+bool Server::isUserInUse(std::string name)
+{
+    for (std::vector<Client*>::const_iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
+        if ((*it)->getUsername() == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 
 std::vector<std::string> Server::splitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> tokens;

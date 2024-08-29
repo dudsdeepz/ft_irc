@@ -30,6 +30,7 @@ class Server{
 		static std::vector<Channel *>channelPool;
 		static std::string message;
 	public:
+		static bool isUserInUse(std::string name);
 		static bool isNickInUse(std::string name);
 		static void clientPoolErase(int clientSocket);
 		static std::string getPassword();
