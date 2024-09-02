@@ -34,6 +34,10 @@ std::string Channel::retrieveNamesList(std::string clientName){
     return formattedNamesList;
 }
 
+std::vector<std::string> Channel::retrieveOpList(){
+	return operators;
+}
+
 std::vector<std::string> Channel::getNameslist(){
 	return namesList;
 }
@@ -41,10 +45,11 @@ std::vector<std::string> Channel::getNameslist(){
 Channel::Channel(std::string name, std::string op) : name_(name)
 {
 	limit = INT_MAX;
+	limit_on = false;
 	invite_only = false;
 	password = "";
 	operators.push_back(op);
-	topic = "No topic has been set";
+	topicOpOnly = true;
 }
 
 void Channel::addToNamesList(std::string name){
@@ -105,4 +110,49 @@ bool Channel::isUserOnThisChannel(std::string name)
 	if (std::find(namesList.begin(), namesList.end(), name) != namesList.end())
 		return true;
 	return false;
+}
+
+bool Channel::isTopicOpOnly()
+{
+	return topicOpOnly;
+}
+
+void Channel::changeTopicOpOnly(bool mod){
+	topicOpOnly = mod;
+}
+
+bool Channel::isLimitReached(){
+	if (namesList.size() == limit)
+		return true;
+	return false;
+}
+
+void Channel::setLimit(int lim, bool mod){
+	limit_on = mod;
+	limit = lim;
+}
+
+bool Channel::getLimitmod(){
+	return limit_on;
+}
+
+int Channel::getLimitNum(){
+	return limit;
+}
+
+std::string Channel::getPassword(){
+	return password;
+}
+
+void Channel::setPassword(bool mode, std::string pas){
+	password_mode = mode;
+	if (pas.empty())
+		password.empty();
+	else
+		password = pas;
+}
+
+bool Channel::isPasswordMode()
+{
+	return password_on;
 }

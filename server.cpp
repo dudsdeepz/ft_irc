@@ -98,16 +98,18 @@ void Server::lobby()
 
 void Server::processData(int i)
 {
-	char buffer[1024];
+	char buffer[2024];
 	sleep(0.1);
     int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
 	if (bytesReceived <= 0)
 	{
 		if (bytesReceived == 0)
+		{
 			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\n" << std::endl;
+			Handler::quitSignal(Server::findClientBySocket(events[i].data.fd));
+		}
 		else
 			std::cout << "Error receiving data from recv\n" << std::endl;
-		close(events[i].data.fd);
 	}
 	else {
 		std::vector<std::string> commands = splitString(buffer, "\r\n");

@@ -14,8 +14,11 @@ class Handler {
 		static std::map<std::string, commandHandler> handler;
 		static std::vector<Channel *>channelsPool;	
 	public:
-		static void modeOperator(bool toogle, Channel *channel, std::string nick);
-		static void modeInviteOnly(bool toogle, Channel *channel);
+		static bool isAllDigit(std::string msg);
+		static void modeLimit(bool toggle, Channel *channel, Client *client, char toggleC, char mode, std::string limit);
+		static void modeTopic(bool toggle, Channel *channel, Client *client, char toggleC, char mode);
+		static void modeOperator(bool toogle, Channel *channel, std::string nick, Client *client, char toggleC, char mode);
+		static void modeInviteOnly(bool toogle, Channel *channel, Client *client, char toggleC, char mode);
 		static void modeCommand(Client *client);
 		static void partCommand(Client *client);
 		static void invCommand(Client *client);

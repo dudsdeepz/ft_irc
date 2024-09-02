@@ -13,11 +13,22 @@ class Channel{
 		std::vector<std::string >operators;
 		std::vector<std::string >namesList;
 		std::vector<std::string >inviteList;
-		int limit;
+		size_t limit;
+		bool limit_on;
 		bool invite_only;
+		bool password_mode;
 		std::string password;
 		std::string topic;
+		bool topicOpOnly;
 	public:
+		bool Channel::isPasswordMode();
+		void setPassword(bool mode, std::string pas);
+		std::string getPassword();
+		int getLimitNum();
+		bool getLimitmod();
+		void setLimit(int lim, bool mod);
+		void changeTopicOpOnly(bool mod);
+		bool isTopicOpOnly();
 		bool isUserInInviteList(std::string nick);
 		void switchInviteMode(bool mode);
 		bool isInviteOnly();
@@ -30,6 +41,7 @@ class Channel{
 		bool isLimitReached();
 		void addToNamesList(std::string name);
 		std::string retrieveNamesList(std::string clientName);
+		std::vector<std::string> retrieveOpList();
 		Channel(std::string name, std::string op);
 		std::vector<std::string> getNameslist();
 		void setName(char *name);

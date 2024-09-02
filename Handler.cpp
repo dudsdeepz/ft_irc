@@ -22,17 +22,50 @@ void Handler::registerCommands()
 
 void Handler::topicCommand(Client *client)
 {
-
 	std::string message = client->getMessageBuffer();
-	if (message.find("#") == std::string::npos)
+	std::istringstream iss(message);
+	std::string channel;
+	std::string trash;
+	std::string topic;
+	iss >> trash;
+	if (!(iss >> channel))
 	{
-		sendLogMessage(client, "No such channel");
+		std::string error = ":server 461 * USER :Not enough parameters\r\n";
+		send(client->getSocket(), error.c_str(), error.size(), 0);
+		return;
+	}
+	Channel *tempChannel = Server::getChannel(channel);
+	if (tempChannel == NULL)
+	{
+		std::string error = ":server 403 " + channel + " :No Such Channel\r\n";
+		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
-	std::string channel = message.substr(message.find("#"), message.find("\r\n"));
-	std::string topicMessage = ":MyServer 331 " + client->getNick() + ' ' + channel + " :" + Server::getChannel(channel)->getTopic() + "\r\n";
-	if (send(client->getSocket(), topicMessage.c_str(), topicMessage.size(), 0) < 0)
-		std::cout << "Error sending topic\r\n" << std::endl;
+	if (Server::getChannel(channel)->isTopicOpOnly())
+	{
+		if (!Server::getChannel(channel)->isOperator(client->getNick()))
+		{
+			std::string error = ":server 482 " + client->getNick() + " " + channel + " :You're not channel operator\r\n";
+			send(client->getSocket(), error.c_str(), error.size(), 0);
+			return ;		
+		}
+	}
+	if (iss>>topic && topic[0] == ':')
+	{
+		topic = message.substr(message.find(":") + 1, message.find("\r\n"));
+		tempChannel->setTopic(topic);
+		std::string topicMessage = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " TOPIC " + channel + " :" + topic + "\r\n"; 
+		tempChannel->sendToAll(topicMessage);
+	}
+	else if (tempChannel->getTopic().empty())
+	{
+		std::string topicMessage = ":server 331 " + client->getNick() + ' ' + channel + " :No topic has been set\r\n";
+		send(client->getSocket(), topicMessage.c_str(), topicMessage.size(), 0);
+	}
+	else{
+		std::string topicMessage = ":server 332 " + client->getNick() + ' ' + channel + " :" + tempChannel->getTopic() + "\r\n";
+		send(client->getSocket(), topicMessage.c_str(), topicMessage.size(), 0);
+	}
 }
 
 void Handler::privmsgCommand(Client *client)
@@ -150,7 +183,7 @@ void Handler::joinCommand(Client* client)
 	}
 	std::vector<Client *>clientPool = Server::getClientPool();
 	std::string channelName = Server::extractChannelName(client->getMessageBuffer());
-	if (channelName.find("#") == std::string::npos)
+	if (channelName[0] != '#')
 	{
 		sendLogMessage(client , "Invalid channel name");
 		return ;
@@ -172,6 +205,15 @@ void Handler::joinCommand(Client* client)
 		Server::addToChannelPool(newChannel);
 	}
 	Channel* tempChannel = Server::getChannel(channelName);
+	if (tempChannel->get)
+	if (tempChannel->getLimitmod())
+	{
+		if (tempChannel->isLimitReached()){
+			std::string error = ":server 473 " + client->getNick() + " " + channelName + " :Channel limit reached (+l)\r\n";
+			send(client->getSocket(), error.c_str(), error.size(), 0);
+			return ;
+		}
+	}
 	if (tempChannel->isUserInInviteList(client->getNick()))
 		tempChannel->removeFromInviteList(client->getNick());
 	else if (tempChannel->isInviteOnly())
@@ -182,6 +224,8 @@ void Handler::joinCommand(Client* client)
 	}
 	client->getChannels().push_back(channelName);
 	tempChannel->addToNamesList(client->getNick());
+	if (!tempChannel->retrieveOpList().size())
+		tempChannel->addToOperators(client->getNick());
 	std::string joinNotification = ":" + client->getNick() + " JOIN :" + channelName + "\r\n";
 	std::string channelNamesList = tempChannel->retrieveNamesList(client->getNick());
 	tempChannel->sendToAll(joinNotification);
@@ -191,14 +235,19 @@ void Handler::joinCommand(Client* client)
 
 void Handler::authCommand(Client* client)
 {
+	std::string passwordCheck;
 	std::string message = client->getMessageBuffer();
+	std::istringstream iss(message);
+	iss >> passwordCheck;
+	passwordCheck.clear();
+	iss >> passwordCheck;
 	if (client->getAuthentication())
 	{
 		std::string error = ":server 462 " + client->getNick() + " :Already authenticated\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
-	if (message.find(Server::getPassword()) != std::string::npos)
+	if (passwordCheck == Server::getPassword())
 	{
 		client->setAuthentication(true);
 		sendLogMessage(client, ("Welcome\t" + client->getNick() + " !"));
@@ -380,6 +429,8 @@ void Handler::modeCommand(Client *client)
 	}
 	while (iss >> tempTrash)
 		arguements.push_back(tempTrash);
+	if (!arguements.size())
+		return ;
 	for (std::vector<std::string>::iterator it = arguements.begin(); it != arguements.end(); it++)
 	{
 		std::string message = *it;
@@ -389,7 +440,7 @@ void Handler::modeCommand(Client *client)
 				toggle = true;
 			else if (message[i] == '-')
 				toggle = false;
-			else if (message[i] == 'i' || message[i] == 't' || message[i] == 'k' || message[i] == 'o')
+			else if (message[i] == 'i' || message[i] == 't' || message[i] == 'k' || message[i] == 'o' || message[i] == 'l')
 			{
 				std::string messageC;
 				char toggleC;
@@ -397,53 +448,99 @@ void Handler::modeCommand(Client *client)
 					toggleC = '+';
 				else
 					toggleC = '-';
+				if (message[i] == 'k' || message[i] == 'o' || (message[i] == 'l' && toggle))
+                {
+                    if (it + 1 == arguements.end())
+                    {
+                        std::string error = ":server 461 " + client->getNick() + " " + channel + " :Not enough parameters\r\n";
+                        send(client->getSocket(), error.c_str(), error.size(), 0);
+                        return;
+                    }
+                }
 				switch(message[i])
 				{
 					case 'i':
-						modeInviteOnly(toggle, Server::getChannel(channel));
-						messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel + " " + toggleC + message[i] + "\r\n";
-						send(client->getSocket(), messageC.c_str(), messageC.size(), 0);
+						modeInviteOnly(toggle, Server::getChannel(channel), client, toggleC, message[i]);
 					break;
 					case 't':
+						modeTopic(toggle, Server::getChannel(channel), client, toggleC, message[i]);
 					break;
 					case 'k':
+						arguements.erase(std::remove(arguements.begin(), arguements.end(), *(it + 1)), arguements.end());
 					break;
 					case 'o':
-						modeOperator(toggle, Server::getChannel(channel), *(it + 1));
-						messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel + " " + toggleC + message[i] + " " + *(it + 1) +"\r\n";
-						Server::getChannel(channel)->sendToAll(messageC);
-						Server::getChannel(channel)->sendToAll(Server::getChannel(channel)->retrieveNamesList(*(it + 1)));
+						modeOperator(toggle, Server::getChannel(channel), *(it + 1), client, toggleC, message[i]);
+						arguements.erase(std::remove(arguements.begin(), arguements.end(), *(it + 1)), arguements.end());
 					break;
-					default:
-							std::string error = ":server 501  :Unknown MODE flag\r\n";
-							send(client->getSocket(), error.c_str(), error.size(), 0);
+					case 'l':
+						modeLimit(toggle, Server::getChannel(channel), client, toggleC, message[i], *(it + 1));
+						arguements.erase(std::remove(arguements.begin(), arguements.end(), *(it + 1)), arguements.end());
 					break;
 				}
 			}
+			else{
+				std::string error = ":server 501  :Unknown MODE flag\r\n";
+				send(client->getSocket(), error.c_str(), error.size(), 0);
+			}
 		}
 	}
-
 }
 
-// void Handler::modeTopic(std::string topic, bool toggle)
-// {
-
-// }
-
-void Handler::modeInviteOnly(bool toggle, Channel *channel)
+void Handler::modeInviteOnly(bool toggle, Channel *channel, Client *client, char toggleC, char mode)
 {
 	if (toggle == channel->isInviteOnly())
 		return;
 	else
 		channel->switchInviteMode(toggle);
+	std::string messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel->getName() + " " + toggleC + mode + "\r\n";
+	channel->sendToAll(messageC);
 }
 
-void Handler::modeOperator(bool toggle, Channel *channel, std::string nick)
+void Handler::modeOperator(bool toggle, Channel *channel, std::string nick, Client *client, char toggleC, char mode)
 {
+	if (nick.empty())
+		return ;
 	if (!channel->isUserOnThisChannel(nick))
 		return ;
 	if (toggle == true && !channel->isOperator(nick))
 		channel->addToOperators(nick);
 	else if (toggle == false && channel->isOperator(nick))
 		channel->removeToOperators(nick);
+	std::string messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel->getName() + " " + toggleC + mode + " " + nick +"\r\n";
+	channel->sendToAll(messageC);
+	channel->sendToAll(channel->retrieveNamesList(nick));
+}
+
+void Handler::modeTopic(bool toggle, Channel *channel, Client *client, char toggleC, char mode)
+{
+	if (toggle == channel->isTopicOpOnly())
+		return;
+	else
+		channel->changeTopicOpOnly(toggle);
+	std::string messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel->getName() + " " + toggleC + mode + "\r\n";
+	channel->sendToAll(messageC);
+}
+
+void Handler::modeLimit(bool toggle, Channel *channel, Client *client, char toggleC, char mode, std::string limit)
+{
+	if (!isAllDigit(limit))
+		return;
+	else if (channel->getLimitNum() == atoi(limit.c_str()) && toggle)
+		return ;
+	else if (!toggle)
+		channel->setLimit(0, toggle);
+	else
+		channel->setLimit(atoi(limit.c_str()), toggle);
+	std::string messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel->getName() + " " + toggleC + mode + " " + limit + "\r\n";
+	channel->sendToAll(messageC);
+}
+
+bool Handler::isAllDigit(std::string msg)
+{
+	for (int i = 0; msg[i]; i++)
+	{
+		if (!isdigit(msg[i]))
+			return false;
+	}
+	return true;
 }
