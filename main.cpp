@@ -1,5 +1,5 @@
-#include "server.hpp"
-#include "Handler.hpp"
+#include "./srcs/Server/server.hpp"
+#include "./srcs/Server/Handler/Handler.hpp"
 
 int main(int ac, char **av)
 {
@@ -13,6 +13,7 @@ int main(int ac, char **av)
 		server.start();
 		int processConnection;
 		Handler::registerCommands();
+		signal(SIGINT, Server::ctrlChandler);
 		while (true)
 		{
 			processConnection = epoll_wait(server.getEpFD() , server.getEvents(), 64, -1);

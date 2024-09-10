@@ -1,5 +1,7 @@
 
-SRCS =	${wildcard *.cpp}
+SRCS =	main.cpp ./srcs/Channel/Channel.cpp ./srcs/Client/Client.cpp \
+				 ./srcs/Server/server.cpp ./srcs/Server/Handler/Handler.cpp \
+				 ./srcs/Server/Handler/Commands/*.cpp \
 
 OBJS = ${SRCS:.c=.o}
 

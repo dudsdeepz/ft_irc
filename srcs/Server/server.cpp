@@ -1,61 +1,17 @@
 #include "server.hpp"
-#include "Handler.hpp"
+#include "./Handler/Handler.hpp"
 
+epoll_event *Server::getEvents(){return events;}
 std::vector<Client *> Server::clientPool;
 std::vector<Channel *> Server::channelPool;
 std::string Server::message; 
-int Server::port;
 std::string Server::password;
+std::string Server::getPassword(){return password;}
+int Server::port;
 int Server::epfd;
-
 int Server::getEpFD(){return epfd;}
-epoll_event *Server::getEvents(){return events;}
 int Server::getEventFd(int i){return events[i].data.fd;}
 int Server::getServerSocket(){return serverSocket;}
-std::string Server::getPassword(){return password;}
-
-Channel* Server::getChannel(std::string name){
-	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
-	{
-		if ((*it)->getName() == name)
-			return *it;
-	}
-	return NULL;
-}
-
- bool Server::checkChannelName(std::string name){
-	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
-	{
-		if ((*it)->getName() == name)
-			return true;
-	}
-	return false;
- }
-
-void Server::setPassword(char *p){
-	password = p;	
-}
-
-void Server::setPort(char *p){
-	if (strlen(p) > 4)
-			throw std::runtime_error("Port too big!");
-	for (int i = 0; p[i]; i++)
-	{
-		if (!isdigit(p[i]))
-			throw std::runtime_error("Port needs to be numerical!");
-	}
-	port = atoi(p);
- }
-
-Client* Server::findClientBySocket(int clientSocket)
-{
-    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
-    {
-        if ((*it)->getSocket() == clientSocket)
-            return *it;
-    }
-    return 0;
-}
 
 void Server::start()
 {
@@ -95,10 +51,52 @@ void Server::lobby()
 	epoll_ctl(epfd, EPOLL_CTL_ADD, clientSocket, &event);
 }
 
+Channel* Server::getChannel(std::string name){
+	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+	{
+		if ((*it)->getName() == name)
+			return *it;
+	}
+	return NULL;
+}
+
+bool Server::checkChannelName(std::string name){
+	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+	{
+		if ((*it)->getName() == name)
+			return true;
+	}
+	return false;
+ }
+
+void Server::setPassword(char *p){
+	password = p;	
+}
+
+void Server::setPort(char *p){
+	if (strlen(p) > 4)
+			throw std::runtime_error("Port too big!");
+	for (int i = 0; p[i]; i++)
+	{
+		if (!isdigit(p[i]))
+			throw std::runtime_error("Port needs to be numerical!");
+	}
+	port = atoi(p);
+ }
+
+Client* Server::findClientBySocket(int clientSocket)
+{
+    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
+    {
+        if ((*it)->getSocket() == clientSocket)
+            return *it;
+    }
+    return 0;
+}
+
 void Server::processData(int i)
 {
 	char buffer[2024];
-	sleep(0.1);
     int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
 	if (bytesReceived <= 0)
 	{
@@ -165,7 +163,7 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
 
 void Server::makeOperator(const std::string& channel, const std::string& nick) {
     std::string command = "MODE " + channel + " +o " + nick + "\r\n";
-    for (std::vector<Client *>::iterator it = getClientPool().begin(); it != getClientPool().end(); it++) {
+    for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
         if ((*it)->isInChannel(channel)) {
             send((*it)->getSocket(), command.c_str(), command.size(), 0);
         }
@@ -249,4 +247,14 @@ Client *Server::findClientByName(std::string name){
 			return (*it);
 	}
 	return NULL;
+}
+
+void Server::ctrlChandler(int signum){
+	(void)signum;
+	for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
+		Handler::quitSignal(*it);
+	// for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+	// 	delete *it;
+	close(epfd);
+	exit(signum);
 }

@@ -3,13 +3,23 @@
 
 void Client::setSocket(int socket){clientSocket = socket;}
 
+std::string Client::getNick(){
+	return this->nick;
+}
+
+std::string Client::getMessageBuffer(){
+	return messageBuffer;
+}
+
 int Client::getSocket(){return clientSocket;}
 
 std::vector<std::string>& Client::getChannels(){return channels;}
 
-void Client::setHost(char *ip){host = ip;}
-
 std::string Client::getHost(){return host.c_str();}
+
+std::string Client::getUsername(){
+	return this->username;
+}
 
 bool Client::getAuthentication(){return authenticated;}
 
@@ -19,25 +29,16 @@ void Client::setMessageBuffer(std::string msg){
 	messageBuffer = msg;
 }
 
-std::string Client::getMessageBuffer(){
-	return messageBuffer;
-}
+void Client::setHost(char *ip){host = ip;}
 
 void Client::setNick(std::string _nick_){
 	this->nick = _nick_;
-}
-
-std::string Client::getNick(){
-	return this->nick;
 }
 
 void Client::setUsername(std::string _nick_){
 	this->username = _nick_;
 }
 
-std::string Client::getUsername(){
-	return this->username;
-}
 bool Client::isInChannel(std::string channelName){
     for (std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++) {
         if (*it == channelName) {
@@ -45,6 +46,10 @@ bool Client::isInChannel(std::string channelName){
         }
     }
     return false;
+}
+
+void Client::leaveChannel(std::string channelName){
+	channels.erase(std::remove(channels.begin(), channels.end(), channelName), channels.end());
 }
 
 Client::Client(){
@@ -70,8 +75,4 @@ void Client::clientQUittingMsg(){
 		tempChannel->removeFromList(nick);
 		tempChannel->sendToAll(message);
 	}
-}
-
-void Client::leaveChannel(std::string channelName){
-	channels.erase(std::remove(channels.begin(), channels.end(), channelName), channels.end());
 }
