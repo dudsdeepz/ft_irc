@@ -65,6 +65,8 @@ void Client::clientQUittingMsg(){
 	for(std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++)
 	{
 		Channel* tempChannel = Server::getChannel(*it);
+		if (tempChannel->isOperator(nick))
+			tempChannel->removeToOperators(nick);
 		tempChannel->removeFromList(nick);
 		tempChannel->sendToAll(message);
 	}

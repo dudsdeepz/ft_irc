@@ -31,14 +31,17 @@ std::string Channel::retrieveNamesList(std::string clientName){
         formattedNamesList.erase(formattedNamesList.size() - 1);
     }
 	formattedNamesList += "\r\n";
+	std::cout << "|" << formattedNamesList << "|" << std::endl;
     return formattedNamesList;
 }
 
 std::vector<std::string> Channel::retrieveOpList(){
+	std::cout << operators.size() << "retrieveOplist" << std::endl;
 	return operators;
 }
 
 std::vector<std::string> Channel::getNameslist(){
+	std::cout << namesList.size() << std::endl;
 	return namesList;
 }
 
@@ -50,10 +53,12 @@ Channel::Channel(std::string name, std::string op) : name_(name)
 	password = "";
 	operators.push_back(op);
 	topicOpOnly = true;
+	password_mode = false;
 }
 
 void Channel::addToNamesList(std::string name){
 	namesList.push_back(name);
+	std::cout << namesList.size() << "addToNamesLIst" <<std::endl;
 }
 
 void Channel::setTopic(std::string msg){
@@ -69,7 +74,7 @@ void Channel::addToOperators(std::string name){
 }
 
 void Channel::removeToOperators(std::string name){
-	   operators.erase(std::remove(operators.begin(), operators.end(), name),operators.end());
+	operators.erase(std::remove(operators.begin(), operators.end(), name),operators.end());
 }
 
 bool Channel::isOperator(std::string name){
@@ -80,6 +85,7 @@ bool Channel::isOperator(std::string name){
 
 void Channel::removeOnNamesList(std::string name){
 	namesList.erase(std::remove(namesList.begin(), namesList.end(), name),namesList.end());
+	std::cout << namesList.size() << "removeOnNamesList" <<std::endl;
 }
 
 void Channel::addToInviteList(std::string nick){
@@ -146,13 +152,10 @@ std::string Channel::getPassword(){
 
 void Channel::setPassword(bool mode, std::string pas){
 	password_mode = mode;
-	if (pas.empty())
-		password.empty();
-	else
-		password = pas;
+	password = pas;
 }
 
 bool Channel::isPasswordMode()
 {
-	return password_on;
+	return password_mode;
 }

@@ -41,17 +41,16 @@ class Server{
 		static Client *findClientBySocket(int clientSocket);
 		static Client *findClientByName(std::string name);
 		static std::vector<Client *> getClientPool(){return clientPool;};
+		static std::vector<Channel *> getChannelPool(){return channelPool;};
 		void makeOperator(const std::string& channel, const std::string& nick);
 		static void sendMessageToChannel(const std::string& nick, const std::string& message);
 		static std::string extractChannelName(const std::string message);
 		int getServerSocket();
 		int getEventFd(int i);
-		static std::vector<Channel *> getChannelPool();
 		static bool checkChannelName(std::string name);
 		static Channel* getChannel(std::string name);
 		static void addToChannelPool(Channel *channel);
 		void processData(int i);
-		std::vector<Client *> clients;
 		static int getEpFD();
 		epoll_event *getEvents();
 		std::vector<std::string> splitString(const std::string &str, const std::string &delimiter);

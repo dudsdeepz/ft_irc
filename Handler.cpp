@@ -10,6 +10,7 @@ void Handler::registerCommands()
 	handler["NICK"] = nickCommand;
 	handler["USER"] = usernameCommand;
 	handler["CAP"] = capCommand;
+	handler["WHO"] = whoCommand;
 	handler["PRIVMSG"] = privmsgCommand;
 	handler["TOPIC"] = topicCommand;
 	handler["KICK"] = kickCommand;
@@ -76,7 +77,59 @@ void Handler::privmsgCommand(Client *client)
 
 void Handler::capCommand(Client *client)
 {
-	(void)client;
+	std::string message = "this does nothing:\r\n";
+	send(client->getSocket(), message.c_str(), message.size(), 0);
+}
+
+void Handler::whoCommand(Client *client)
+{
+	std::istringstream iss(client->getMessageBuffer());
+	std::string buffer;
+	std::string channel;
+	iss >> buffer;
+	if (iss >> channel)
+	{
+		Channel *tempChannel = Server::getChannel(channel);
+		std::vector<std::string > tempNamesList = tempChannel->getNameslist();
+		for (std::vector<std::string >::iterator it = tempNamesList.begin(); it != tempNamesList.end(); it++)
+		{
+			std::string status;
+			if (channel != "*")
+			{
+				if (tempChannel->isOperator(*it))
+					status = '@';
+				else
+					status = '+';
+			}
+			std::string message = ":server 352 " + client->getNick() + " " + channel + " localhost ft_irc " + *it + " H" + status + " :1 " + Server::findClientByName(*it)->getUsername() + "\r\n";
+			send(client->getSocket(), message.c_str(), message.size(), 0);
+		}
+		std::string message = ":server 315 " + client->getNick() + " " + channel + " :End of WHO list\r\n";
+		send(client->getSocket(), message.c_str(), message.size(), 0);
+	}
+	else
+	{
+		std::vector<Channel *>tempPool = Server::getChannelPool();
+		for (std::vector<Channel *>::iterator ita = tempPool.begin(); ita != tempPool.end(); ita++)
+		{
+			std::vector<std::string > tempNamesList = (*ita)->getNameslist();
+			for (std::vector<std::string >::iterator it = tempNamesList.begin(); it != tempNamesList.end(); it++)
+			{
+				std::string status;
+				if (channel != "*")
+				{
+					if ((*ita)->isOperator(*it))
+						status = '@';
+					else
+						status = '+';
+				}
+				std::string message = ":server 352 " + client->getNick() + " " + (*ita)->getName() + " localhost ft_irc " + *it + " H" + status + " :1 " + Server::findClientByName(*it)->getUsername() + "\r\n";
+				send(client->getSocket(), message.c_str(), message.size(), 0);
+			}
+		}
+		std::string message = ":server 315 " + client->getNick() + " " + channel + " :End of WHO list\r\n";
+		send(client->getSocket(), message.c_str(), message.size(), 0);
+	}
 }
 
 void Handler::nickCommand(Client *client)
@@ -182,10 +235,15 @@ void Handler::joinCommand(Client* client)
 		return ;
 	}
 	std::vector<Client *>clientPool = Server::getClientPool();
-	std::string channelName = Server::extractChannelName(client->getMessageBuffer());
+	std::istringstream iss(client->getMessageBuffer());
+	std::string buffer;
+	std::string channelName;
+	iss >> buffer;
+	iss >> channelName;
 	if (channelName[0] != '#')
 	{
-		sendLogMessage(client , "Invalid channel name");
+		std::string error = ":server 403 " + client->getNick() + " " + channelName + " :Invalid channel name\r\n";
+		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
 	if (client->isInChannel(channelName))
@@ -201,15 +259,35 @@ void Handler::joinCommand(Client* client)
 	if (!Server::checkChannelName(channelName))
 	{
 		Channel* newChannel = new Channel(channelName, client->getNick());
-		newChannel->addToOperators(client->getNick());
 		Server::addToChannelPool(newChannel);
 	}
 	Channel* tempChannel = Server::getChannel(channelName);
-	if (tempChannel->get)
+	if (tempChannel->isPasswordMode())
+	{
+		std::istringstream iss (client->getMessageBuffer());
+		std::string buffer;
+		std::vector<std::string > args;
+		while (iss >> buffer)
+			args.push_back(buffer);
+		if (args.size() != 3)
+		{
+			std::string error = ":server 475 " + client->getNick() + " " + channelName + " :Cannot join channel (+k)\r\n";
+			send(client->getSocket(), error.c_str(), error.size(), 0);
+			return ;
+		}
+		if (args[2] != tempChannel->getPassword())
+		{
+			std::cout << args[2] <<  "|" << std::endl;
+			std::cout << tempChannel->getPassword() << "|" << std::endl;
+			std::string error = ":server 475 " + client->getNick() + " " + channelName + " :Invalid Password (+k)\r\n";
+			send(client->getSocket(), error.c_str(), error.size(), 0);
+			return ;
+		}
+	}	
 	if (tempChannel->getLimitmod())
 	{
 		if (tempChannel->isLimitReached()){
-			std::string error = ":server 473 " + client->getNick() + " " + channelName + " :Channel limit reached (+l)\r\n";
+			std::string error = ":server 471 " + client->getNick() + " " + channelName + " :Channel limit reached (+l)\r\n";
 			send(client->getSocket(), error.c_str(), error.size(), 0);
 			return ;
 		}
@@ -222,10 +300,10 @@ void Handler::joinCommand(Client* client)
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
+	if (tempChannel->getNameslist().size() == 0)
+		tempChannel->addToOperators(client->getNick());
 	client->getChannels().push_back(channelName);
 	tempChannel->addToNamesList(client->getNick());
-	if (!tempChannel->retrieveOpList().size())
-		tempChannel->addToOperators(client->getNick());
 	std::string joinNotification = ":" + client->getNick() + " JOIN :" + channelName + "\r\n";
 	std::string channelNamesList = tempChannel->retrieveNamesList(client->getNick());
 	tempChannel->sendToAll(joinNotification);
@@ -287,7 +365,7 @@ void Handler::kickCommand(Client *client)
 	{
 		if (!(iss>>nick))
 		{
-			std::string error = ":server 461 * KICK :Not enough parameters";
+			std::string error = ":server 461 * KICK :Not enough parameters\r\n";
 			send(client->getSocket(), error.c_str(), error.size(), 0);
 			return ;
 		}
@@ -421,9 +499,9 @@ void Handler::modeCommand(Client *client)
 	iss >> tempTrash;
 	iss >> channel;
 	tempTrash.clear();
-	if (!Server::getChannel(channel)->isOperator(client->getNick()))
+	if (!Server::checkChannelName(channel))
 	{
-		std::string error = ":server 482 " + client->getNick() + " " + channel + " :You're not channel operator\r\n";
+		std::string error = ":server 403 " + channel + " :No Such Channel\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
@@ -431,16 +509,29 @@ void Handler::modeCommand(Client *client)
 		arguements.push_back(tempTrash);
 	if (!arguements.size())
 		return ;
+	if (!Server::getChannel(channel)->isOperator(client->getNick()))
+	{
+		std::string error = ":server 482 " + client->getNick() + " " + channel + " :You're not channel operator\r\n";
+		send(client->getSocket(), error.c_str(), error.size(), 0);
+		return ;
+	}
+	bool checkToggle = false;
 	for (std::vector<std::string>::iterator it = arguements.begin(); it != arguements.end(); it++)
 	{
 		std::string message = *it;
 		for (int i = 0; message[i]; i++)
 		{
 			if (message[i] == '+')
+			{
 				toggle = true;
+				checkToggle = true;
+			}
 			else if (message[i] == '-')
+			{
 				toggle = false;
-			else if (message[i] == 'i' || message[i] == 't' || message[i] == 'k' || message[i] == 'o' || message[i] == 'l')
+				checkToggle = true;
+			}
+			else if ((message[i] == 'i' || message[i] == 't' || message[i] == 'k' || message[i] == 'o' || message[i] == 'l') && checkToggle)
 			{
 				std::string messageC;
 				char toggleC;
@@ -466,6 +557,7 @@ void Handler::modeCommand(Client *client)
 						modeTopic(toggle, Server::getChannel(channel), client, toggleC, message[i]);
 					break;
 					case 'k':
+						passwordMode(toggle, Server::getChannel(channel), client, toggleC, message[i], *(it + 1));
 						arguements.erase(std::remove(arguements.begin(), arguements.end(), *(it + 1)), arguements.end());
 					break;
 					case 'o':
@@ -481,6 +573,7 @@ void Handler::modeCommand(Client *client)
 			else{
 				std::string error = ":server 501  :Unknown MODE flag\r\n";
 				send(client->getSocket(), error.c_str(), error.size(), 0);
+				continue ;
 			}
 		}
 	}
@@ -501,6 +594,8 @@ void Handler::modeOperator(bool toggle, Channel *channel, std::string nick, Clie
 	if (nick.empty())
 		return ;
 	if (!channel->isUserOnThisChannel(nick))
+		return ;
+	if (channel->isOperator(nick) && toggle)
 		return ;
 	if (toggle == true && !channel->isOperator(nick))
 		channel->addToOperators(nick);
@@ -543,4 +638,17 @@ bool Handler::isAllDigit(std::string msg)
 			return false;
 	}
 	return true;
+}
+
+
+void Handler::passwordMode(bool toggle, Channel *channel, Client *client, char toggleC, char mode, std::string password)
+{
+	if (channel->isPasswordMode() == toggle && password == channel->getPassword())
+		return ;
+	else if (!toggle)
+		channel->setPassword(toggle, "");
+	else
+		channel->setPassword(toggle, password);
+	std::string messageC = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " MODE " + channel->getName() + " " + toggleC + mode + " " + password + "\r\n";
+	channel->sendToAll(messageC);
 }

@@ -13,7 +13,6 @@ epoll_event *Server::getEvents(){return events;}
 int Server::getEventFd(int i){return events[i].data.fd;}
 int Server::getServerSocket(){return serverSocket;}
 std::string Server::getPassword(){return password;}
-std::vector<Channel *> Server::getChannelPool(){return channelPool;}
 
 Channel* Server::getChannel(std::string name){
 	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
@@ -117,8 +116,8 @@ void Server::processData(int i)
             std::string message = *it;
 			std::cout << message << std::endl;
 			Handler::processCommands(findClientBySocket(events[i].data.fd), message);
+			memset(buffer, 0, sizeof(buffer));
 		}
-		memset(buffer, 0, sizeof(buffer));
 	}
 }
 

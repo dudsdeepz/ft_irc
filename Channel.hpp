@@ -5,8 +5,6 @@
 #include <limits.h>
 #include "server.hpp"
 
-class Server;
-
 class Channel{
 	private:
 		std::string name_;
@@ -21,7 +19,7 @@ class Channel{
 		std::string topic;
 		bool topicOpOnly;
 	public:
-		bool Channel::isPasswordMode();
+		bool isPasswordMode();
 		void setPassword(bool mode, std::string pas);
 		std::string getPassword();
 		int getLimitNum();
