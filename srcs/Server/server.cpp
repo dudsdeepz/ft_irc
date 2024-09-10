@@ -24,6 +24,10 @@ void Server::start()
     serverAddress.sin_port = htons(port);
     serverAddress.sin_addr.s_addr = INADDR_ANY;
 
+	int opt = 1;
+	if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+		throw std::runtime_error("Failed to set socket options");
+	}
     if (bind(Server::serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
 	{
         throw std::runtime_error("Failed to bind socket");
@@ -189,6 +193,7 @@ void Server::clientPoolErase(int clientSocket)
 	for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
 		if ((*it)->getSocket() == clientSocket) {
 			clientPool.erase(it);
+			delete *it;
 			return ;
 		}
 	}
@@ -253,6 +258,8 @@ void Server::ctrlChandler(int signum){
 	(void)signum;
 	for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
 		Handler::quitSignal(*it);
+	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+		delete *it;
 	// for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
 	// 	delete *it;
 	close(epfd);

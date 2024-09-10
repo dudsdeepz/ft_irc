@@ -39,7 +39,6 @@ void Handler::quitSignal(Client* client)
 	close(client->getSocket());
 	std::cout << "Client disconnected: " << (client)->getNick() << std::endl;
 	Server::clientPoolErase(client->getSocket());
-	delete client;
 }
 
 void Handler::processCommands(Client *client, std::string& message)
