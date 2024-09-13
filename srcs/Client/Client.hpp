@@ -14,6 +14,12 @@ class Client{
 		std::string tempData;
 	public:
 		//MESSAGE RECEIVED
+		void appendToMessageBuffer(const std::string& data) {
+        	messageBuffer += data;
+    	}
+		void clearMessageBuffer() {
+        	messageBuffer.clear();
+    	}
 		void setMessageBuffer(std::string msg);
 		std::string getMessageBuffer();
 		//EPOLLOUT HANDLE

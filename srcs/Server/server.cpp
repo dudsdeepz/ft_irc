@@ -9,6 +9,7 @@ std::string Server::password;
 std::string Server::getPassword(){return password;}
 int Server::port;
 int Server::epfd;
+char Server::buffer[2024];
 int Server::getEpFD(){return epfd;}
 int Server::getEventFd(int i){return events[i].data.fd;}
 int Server::getServerSocket(){return serverSocket;}
@@ -29,9 +30,7 @@ void Server::start()
 		throw std::runtime_error("Failed to set socket options");
 	}
     if (bind(Server::serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
-	{
         throw std::runtime_error("Failed to bind socket");
-	}
 	if (listen(Server::serverSocket, SOMAXCONN) < 0)
         throw std::runtime_error("Failed to listen on socket");
 	epfd = epoll_create(1);
@@ -104,13 +103,13 @@ Client* Server::findClientBySocket(int clientSocket)
 
 void Server::processData(int i)
 {
-	char buffer[2024];
     int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
 	if (bytesReceived <= 0)
 	{
 		if (bytesReceived == 0)
 		{
 			Client *tempClient = Server::findClientBySocket(events[i].data.fd);
+			tempClient->clearMessageBuffer();
 			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\r\n";
 			Handler::quitSignal(tempClient);
 			clientPool.erase(std::remove(clientPool.begin(), clientPool.end(), tempClient),clientPool.end());
@@ -119,14 +118,17 @@ void Server::processData(int i)
 			std::cout << "Error receiving data from recv\r\n";
 	}
 	else {
-		std::cout << "COMMAND GOING" << std::endl;
-		std::vector<std::string> commands = splitString(buffer, "\r\n");
+		message += buffer;
+		memset(buffer, 0, sizeof(buffer));
+		if (message.find("\n") == std::string::npos)
+			return;
+		std::vector<std::string> commands = splitString(message, "\r\n");
         for (std::vector<std::string>::iterator it = commands.begin(); it != commands.end(); it++) {
             std::string message = *it;
 			std::cout << message << std::endl;
 			Handler::processCommands(findClientBySocket(events[i].data.fd), message);
 		}
-		memset(buffer, 0, sizeof(buffer));
+		message.clear();
 	}
 }
 

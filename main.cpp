@@ -24,11 +24,6 @@ int main(int ac, char **av)
 					else
 						server.processData(i);
 				}
-				else if (server.getEvents()[i].data.fd && EPOLLOUT)
-				{
-					std::cout << "EPOLLOUT " << std::endl;
-					server.processData(i);
-				}
 			}
 		}
 	}

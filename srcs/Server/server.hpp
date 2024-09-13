@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <csignal>
 #include <cstring>
+#include <cstdio>
 #include "../Client/Client.hpp"
 #include "../Channel/Channel.hpp"
 #include <sys/epoll.h>
@@ -29,6 +30,7 @@ class Server{
 		static std::vector<Client *>clientPool;
 		static std::vector<Channel *>channelPool;
 		static std::string message;
+		static char buffer[2024];
 	public:
 		static bool isUserInUse(std::string name);
 		static bool isNickInUse(std::string name);

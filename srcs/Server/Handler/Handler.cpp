@@ -68,6 +68,7 @@ void Handler::processCommands(Client *client, std::string& message)
 		std::string unknownCommand = ":server 421 " + command + " :Unknown command\r\n";
 		send(client->getSocket(), unknownCommand.c_str(), unknownCommand.size(), 0);
 	}
+	client->clearMessageBuffer();
 }
 
 
