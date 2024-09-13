@@ -41,8 +41,6 @@ void Handler::quitSignal(Client* client)
 	}
 	epoll_ctl(Server::getEpFD(), EPOLL_CTL_DEL, client->getSocket(), NULL);
 	close(client->getSocket());
-	std::vector<Client *>tempClientPool = Server::getClientPool();
-	tempClientPool.erase(std::remove(tempClientPool.begin(), tempClientPool.end(), client),tempClientPool.end());
 	delete client;
 }
 
