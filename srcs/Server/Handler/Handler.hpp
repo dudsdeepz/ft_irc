@@ -14,6 +14,7 @@ class Handler {
 		static std::map<std::string, commandHandler> handler;
 		static std::vector<Channel *>channelsPool;	
 	public:
+		static void channelsReplace(std::string oldname, std::string name, Client *client);
 		static void whoCommand(Client *client);
 		static void passwordMode(bool toggle, Channel *channel, Client *client, char toggleC, char mod, std::string password);
 		static bool isAllDigit(std::string msg);

@@ -34,11 +34,16 @@ void Handler::capCommand(Client *client)
 
 void Handler::quitSignal(Client* client)
 {
-	client->clientQUittingMsg();
+	if (!client->getNick().empty())
+	{
+		client->clientQUittingMsg();
+		std::cout << "Client disconnected: " << (client)->getNick() << std::endl;
+	}
 	epoll_ctl(Server::getEpFD(), EPOLL_CTL_DEL, client->getSocket(), NULL);
 	close(client->getSocket());
-	std::cout << "Client disconnected: " << (client)->getNick() << std::endl;
-	Server::clientPoolErase(client->getSocket());
+	std::vector<Client *>tempClientPool = Server::getClientPool();
+	tempClientPool.erase(std::remove(tempClientPool.begin(), tempClientPool.end(), client),tempClientPool.end());
+	delete client;
 }
 
 void Handler::processCommands(Client *client, std::string& message)
@@ -50,11 +55,11 @@ void Handler::processCommands(Client *client, std::string& message)
 	client->setMessageBuffer(message);
 	if (handleIt != handler.end())
 	{
-		if (client->getNick().empty() || client->getUsername().empty())
+		if (!client->getAuthentication())
 		{
-			if (command != "NICK" && command != "USER" && command != "CAP")
+			if (command != "PASS"  && command != "CAP" && command != "NICK" && command != "USER")
 			{
-				std::string error = ":server 451 : You have not registered\r\n";
+				std::string error = ":server 451 : You have not authenticated\r\n";
 				send(client->getSocket(), error.c_str(), error.size(), 0);
 				return ;
 			}

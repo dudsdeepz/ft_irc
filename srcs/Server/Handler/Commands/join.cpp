@@ -2,9 +2,9 @@
 
 void Handler::joinCommand(Client* client)
 {
-	if (!client->getAuthentication())
+	if (client->getNick().empty() || client->getUsername().empty())
 	{
-		std::string error = ":server 451 : You have not authenticated\r\n";
+		std::string error = ":server 451 : You have not registered\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
@@ -49,8 +49,6 @@ void Handler::joinCommand(Client* client)
 		}
 		if (args[2] != tempChannel->getPassword())
 		{
-			std::cout << args[2] <<  "|" << std::endl;
-			std::cout << tempChannel->getPassword() << "|" << std::endl;
 			std::string error = ":server 475 " + client->getNick() + " " + channelName + " :Invalid Password (+k)\r\n";
 			send(client->getSocket(), error.c_str(), error.size(), 0);
 			return ;
@@ -80,5 +78,4 @@ void Handler::joinCommand(Client* client)
 	std::string channelNamesList = tempChannel->retrieveNamesList(client->getNick());
 	tempChannel->sendToAll(joinNotification);
 	tempChannel->sendToAll(channelNamesList);
-	
 }

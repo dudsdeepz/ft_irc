@@ -18,7 +18,7 @@ void Server::start()
 	Server::serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (Server::serverSocket == -1)
 		throw std::runtime_error("Failed to create socket");
-	
+
 	sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(port);
@@ -47,6 +47,10 @@ void Server::lobby()
 	int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddress, &clientLen);
 	if (clientSocket < 0)
 		throw std::runtime_error("Failed to accept client");
+	
+	 if (fcntl(clientSocket, F_SETFL, O_NONBLOCK) == -1) {
+        throw std::runtime_error("Failed to set client socket to non-blocking mode");
+    }
 	Client *newClient = new Client;
 	newClient->setHost(inet_ntoa(clientAddress.sin_addr));
 	newClient->setSocket(clientSocket);
@@ -106,20 +110,21 @@ void Server::processData(int i)
 	{
 		if (bytesReceived == 0)
 		{
-			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\n" << std::endl;
+			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\r\n";
 			Handler::quitSignal(Server::findClientBySocket(events[i].data.fd));
 		}
 		else
-			std::cout << "Error receiving data from recv\n" << std::endl;
+			std::cout << "Error receiving data from recv\r\n";
 	}
 	else {
+		std::cout << "COMMAND GOING" << std::endl;
 		std::vector<std::string> commands = splitString(buffer, "\r\n");
         for (std::vector<std::string>::iterator it = commands.begin(); it != commands.end(); it++) {
             std::string message = *it;
 			std::cout << message << std::endl;
 			Handler::processCommands(findClientBySocket(events[i].data.fd), message);
-			memset(buffer, 0, sizeof(buffer));
 		}
+		memset(buffer, 0, sizeof(buffer));
 	}
 }
 
@@ -147,6 +152,8 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
 			host = (*it)->getHost();
 		}
 	}
+	if (!Server::findClientByName(nick)->isInChannel(channelName))
+		return ;
     std::string fullMessage = ":" + nick + "!" + user + "@" + host + " " + message + "\r\n";
 	if (channelName.find("#") != std::string::npos)
 	{
@@ -157,6 +164,7 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
 		}
 	}
 	else {
+		std::cout << "CARALHO" << std::endl;
 			for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
 				if ((*it)->getNick() == channelName) {
 					send((*it)->getSocket(), fullMessage.c_str(), fullMessage.size(), 0);
@@ -255,13 +263,32 @@ Client *Server::findClientByName(std::string name){
 }
 
 void Server::ctrlChandler(int signum){
-	(void)signum;
-	for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++)
-		Handler::quitSignal(*it);
-	for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
-		delete *it;
-	// for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
-	// 	delete *it;
+	if (clientPool.size() > 0)
+	{
+		for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); )
+		{
+			epoll_ctl(Server::getEpFD(), EPOLL_CTL_DEL, (*it)->getSocket(), NULL);
+			close((*it)->getSocket());
+			delete *it;
+			it = clientPool.erase(it);
+
+		}
+	}
+	if (channelPool.size() > 0)
+	{
+		for (std::vector<Channel *>::iterator it = channelPool.begin(); it != channelPool.end(); it++)
+			delete *it;
+	}
 	close(epfd);
 	exit(signum);
+}
+
+void Server::sendData(int i){
+	int clientSocket = getEventFd(i);
+	Client* client = findClientBySocket(clientSocket);
+	if (!client)
+		return;
+	char buffer[2024];
+	recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
+	client->appendData(buffer);
 }

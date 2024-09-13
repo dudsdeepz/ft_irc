@@ -17,7 +17,7 @@ void Handler::authCommand(Client* client)
 	if (passwordCheck == Server::getPassword())
 	{
 		client->setAuthentication(true);
-		std::string message = "Welcome\t" + client->getNick() + " !\r\n";
+		std::string message = "Welcome to the ft_irc Network\r\n";
 		send(client->getSocket(), message.c_str(), message.size(), 0);
 	}
 	else

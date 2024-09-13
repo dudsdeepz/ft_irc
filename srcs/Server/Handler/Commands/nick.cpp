@@ -25,8 +25,26 @@ void Handler::nickCommand(Client *client)
 		std::string notifyNickChange = ":" + client->getNick() + "!" + client->getUsername() + "@" + client->getHost() + " NICK :" + name + "\r\n";
 		Server::sendToAllClients(notifyNickChange);
 	}
-	std::string oldname = client->getNick();
-	client->setNick(name);
-	std::string nickChange = ":" + oldname + " NICK " + name + "\r\n";
+	std::string nickChange;
+	if (!client->getNick().empty())
+	{
+		nickChange = ":" + client->getNick() + " NICK :" + name + "\r\n";
+		channelsReplace(client->getNick(), name, client);
+	}
+	else
+		nickChange = ":" + name + " NICK :" + name + "\r\n";
+	std::cout << nickChange << std::endl;
 	send(client->getSocket(), nickChange.c_str(), nickChange.size(), 0);
+	std::cout << client->getNick() << std::endl;
+	client->setNick(name);
+}
+
+void Handler::channelsReplace(std::string oldname, std::string name, Client *client)
+{
+	for (std::vector<std::string >::iterator it = client->getChannels().begin(); it != client->getChannels().end(); it++)
+	{
+		if (Server::getChannel(*it)->isOperator(name))
+			Server::getChannel(*it)->replaceOnOpList(name, oldname);
+		Server::getChannel(*it)->replaceOnNamesList(name, oldname);
+	}
 }

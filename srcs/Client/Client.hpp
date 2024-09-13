@@ -11,10 +11,15 @@ class Client{
 		int clientSocket;
 		std::vector<std::string> channels;
 		std::string messageBuffer;
+		std::string tempData;
 	public:
 		//MESSAGE RECEIVED
 		void setMessageBuffer(std::string msg);
 		std::string getMessageBuffer();
+		//EPOLLOUT HANDLE
+		void appendData(const std::string& data);
+		std::string& getData();
+		void clearData();
 		//IS AUTHENTICATED
 		void setAuthentication(bool yesorno);
 		bool getAuthentication();

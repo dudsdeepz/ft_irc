@@ -56,6 +56,7 @@ class Server{
 		static void ctrlChandler(int signum);
 		int getServerSocket();
 		int getEventFd(int i);
+		void sendData(int i);
 		std::vector<std::string> splitString(const std::string &str, const std::string &delimiter);
 		epoll_event *getEvents();
 } ;

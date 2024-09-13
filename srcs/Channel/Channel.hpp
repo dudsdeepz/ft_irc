@@ -54,9 +54,11 @@ class Channel{
 		std::string retrieveNamesList(std::string clientName);
 		std::vector<std::string> getNameslist();
 		void removeOnNamesList(std::string name);
+		void replaceOnNamesList(std::string name, std::string oldname);
 		//OP LIST
 		std::vector<std::string> retrieveOpList();
 		void addToOperators(std::string name);
 		void removeToOperators(std::string name);
 		bool isOperator(std::string name);
+		void replaceOnOpList(std::string name, std::string oldname);
 }	;

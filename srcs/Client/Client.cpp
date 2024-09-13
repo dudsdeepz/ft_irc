@@ -54,6 +54,7 @@ void Client::leaveChannel(std::string channelName){
 
 Client::Client(){
 	authenticated = false;
+	nick = "";
 }
 
 Client::~Client(){
@@ -75,4 +76,16 @@ void Client::clientQUittingMsg(){
 		tempChannel->removeFromList(nick);
 		tempChannel->sendToAll(message);
 	}
+}
+
+void Client::appendData(const std::string& data){
+	tempData += data;	
+}
+
+std::string& Client::getData(){
+	return tempData;
+}
+
+void Client::clearData(){
+	tempData.clear();
 }

@@ -19,7 +19,6 @@ Channel::~Channel(){
 std::string Channel::getName(){return name_;}
 
 std::vector<std::string> Channel::getNameslist(){
-	std::cout << namesList.size() << std::endl;
 	return namesList;
 }
 
@@ -82,7 +81,6 @@ std::string Channel::retrieveNamesList(std::string clientName){
         formattedNamesList.erase(formattedNamesList.size() - 1);
     }
 	formattedNamesList += "\r\n";
-	std::cout << "|" << formattedNamesList << "|" << std::endl;
     return formattedNamesList;
 }
 
@@ -99,7 +97,6 @@ void Channel::sendToAll(std::string message)
 //OPERATORS
 
 std::vector<std::string> Channel::retrieveOpList(){
-	std::cout << operators.size() << "retrieveOplist" << std::endl;
 	return operators;
 }
 
@@ -117,16 +114,23 @@ bool Channel::isOperator(std::string name){
 	return false;
 }
 
+void Channel::replaceOnOpList(std::string name, std::string oldname){
+	for (std::vector<std::string>::iterator it = operators.begin(); it != operators.end(); ++it) {
+        if (*it == oldname)
+		{
+			*it = name;
+			return ;
+		}	
+	}
+}
 //NAMELIST
 
 void Channel::addToNamesList(std::string name){
 	namesList.push_back(name);
-	std::cout << namesList.size() << "addToNamesLIst" <<std::endl;
 }
 
 void Channel::removeOnNamesList(std::string name){
 	namesList.erase(std::remove(namesList.begin(), namesList.end(), name),namesList.end());
-	std::cout << namesList.size() << "removeOnNamesList" <<std::endl;
 }
 
 //INVITE MOD
@@ -153,6 +157,15 @@ bool Channel::isUserInInviteList(std::string nick){
 	return false;
 }
 
+void Channel::replaceOnNamesList(std::string name, std::string oldname){
+	for (std::vector<std::string>::iterator it = namesList.begin(); it != namesList.end(); ++it) {
+        if (*it == oldname)
+		{
+			*it = name;
+			return ;
+		}
+	}
+}
 
 // TOPIC MODE
 

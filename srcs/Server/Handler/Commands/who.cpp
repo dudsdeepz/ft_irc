@@ -20,7 +20,8 @@ void Handler::whoCommand(Client *client)
 				else
 					status = '+';
 			}
-			std::string message = ":server 352 " + client->getNick() + " " + channel + " localhost ft_irc " + *it + " H" + status + " :1 " + Server::findClientByName(*it)->getUsername() + "\r\n";
+			std::string username = Server::findClientByName(*it)->getUsername();
+			std::string message = ":server 352 " + client->getNick() + " " + channel + " localhost ft_irc " + *it + " H" + status + " :1 " + username  + "\r\n";
 			send(client->getSocket(), message.c_str(), message.size(), 0);
 		}
 		std::string message = ":server 315 " + client->getNick() + " " + channel + " :End of WHO list\r\n";
