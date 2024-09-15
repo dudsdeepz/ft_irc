@@ -41,7 +41,7 @@ void Handler::quitSignal(Client* client)
 	}
 	epoll_ctl(Server::getEpFD(), EPOLL_CTL_DEL, client->getSocket(), NULL);
 	close(client->getSocket());
-	delete client;
+	Server::clientPoolErase(client->getSocket());
 }
 
 void Handler::processCommands(Client *client, std::string& message)
@@ -68,7 +68,6 @@ void Handler::processCommands(Client *client, std::string& message)
 		std::string unknownCommand = ":server 421 " + command + " :Unknown command\r\n";
 		send(client->getSocket(), unknownCommand.c_str(), unknownCommand.size(), 0);
 	}
-	client->clearMessageBuffer();
 }
 
 

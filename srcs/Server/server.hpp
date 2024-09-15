@@ -21,7 +21,7 @@ class Channel;
 
 class Server{
 	protected:
-		int serverSocket;
+		static int serverSocket;
 		static int port;
 		static int epfd;
 		static std::string password;

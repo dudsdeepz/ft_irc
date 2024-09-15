@@ -9,6 +9,7 @@ std::string Server::password;
 std::string Server::getPassword(){return password;}
 int Server::port;
 int Server::epfd;
+int Server::serverSocket;
 char Server::buffer[2024];
 int Server::getEpFD(){return epfd;}
 int Server::getEventFd(int i){return events[i].data.fd;}
@@ -30,7 +31,9 @@ void Server::start()
 		throw std::runtime_error("Failed to set socket options");
 	}
     if (bind(Server::serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0)
+	{
         throw std::runtime_error("Failed to bind socket");
+	}
 	if (listen(Server::serverSocket, SOMAXCONN) < 0)
         throw std::runtime_error("Failed to listen on socket");
 	epfd = epoll_create(1);
@@ -104,15 +107,13 @@ Client* Server::findClientBySocket(int clientSocket)
 void Server::processData(int i)
 {
     int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
+	Client *tempClient = Server::findClientBySocket(events[i].data.fd);
 	if (bytesReceived <= 0)
 	{
 		if (bytesReceived == 0)
 		{
-			Client *tempClient = Server::findClientBySocket(events[i].data.fd);
-			tempClient->clearMessageBuffer();
 			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\r\n";
 			Handler::quitSignal(tempClient);
-			clientPool.erase(std::remove(clientPool.begin(), clientPool.end(), tempClient),clientPool.end());
 		}
 		else
 			std::cout << "Error receiving data from recv\r\n";
@@ -126,7 +127,7 @@ void Server::processData(int i)
         for (std::vector<std::string>::iterator it = commands.begin(); it != commands.end(); it++) {
             std::string message = *it;
 			std::cout << message << std::endl;
-			Handler::processCommands(findClientBySocket(events[i].data.fd), message);
+			Handler::processCommands(tempClient, message);
 		}
 		message.clear();
 	}
@@ -283,6 +284,7 @@ void Server::ctrlChandler(int signum){
 			delete *it;
 	}
 	close(epfd);
+	close(serverSocket);
 	exit(signum);
 }
 

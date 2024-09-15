@@ -41,7 +41,6 @@ class Client{
 		//CLASS FUNCS
 		Client();
 		Client(const Client &client);
-		~Client();
 		void clientQUittingMsg();
 		//NICK FUNCS
 		void setNick(std::string _nick_);

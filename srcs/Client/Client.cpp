@@ -57,9 +57,6 @@ Client::Client(){
 	nick = "";
 }
 
-Client::~Client(){
-}
-
 Client::Client(const Client &client){
 	*this = client;
 }
