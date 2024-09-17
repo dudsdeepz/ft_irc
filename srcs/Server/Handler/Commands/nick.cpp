@@ -3,6 +3,7 @@
 void Handler::nickCommand(Client *client)
 {
 	std::string message = client->getMessageBuffer();
+	
 	std::string name = message.substr(message.find("NICK") + 5, message.find("\r\n"));
 	name.erase(std::remove(name.begin(), name.end(), ' '), name.end());
 	name.erase(std::remove(name.begin(), name.end(), '\r'), name.end());

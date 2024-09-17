@@ -13,6 +13,7 @@ int main(int ac, char **av)
 		server.start();
 		Handler::registerCommands();
 		signal(SIGINT, Server::ctrlChandler);
+		signal(SIGPIPE, SIG_IGN);
 		while (true)
 		{
 			processConnection = epoll_wait(server.getEpFD() , server.getEvents(), 64, -1);
@@ -24,6 +25,10 @@ int main(int ac, char **av)
 					else
 						server.processData(i);
 				}
+				else if (server.getEvents()[i].data.fd && EPOLLERR)
+					continue ;
+				else if (server.getEvents()[i].data.fd && EPOLLOUT)
+					continue ;
 			}
 		}
 	}

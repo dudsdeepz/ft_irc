@@ -107,13 +107,12 @@ Client* Server::findClientBySocket(int clientSocket)
 void Server::processData(int i)
 {
     int bytesReceived = recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
-	Client *tempClient = Server::findClientBySocket(events[i].data.fd);
 	if (bytesReceived <= 0)
 	{
 		if (bytesReceived == 0)
 		{
 			std::cout << "Lost connection with ClientSocket : " << events[i].data.fd << "\r\n";
-			Handler::quitSignal(tempClient);
+			Handler::quitSignal(Server::findClientBySocket(events[i].data.fd));
 		}
 		else
 			std::cout << "Error receiving data from recv\r\n";
@@ -127,7 +126,7 @@ void Server::processData(int i)
         for (std::vector<std::string>::iterator it = commands.begin(); it != commands.end(); it++) {
             std::string message = *it;
 			std::cout << message << std::endl;
-			Handler::processCommands(tempClient, message);
+			Handler::processCommands(Server::findClientBySocket(events[i].data.fd), message);
 		}
 		message.clear();
 	}
@@ -152,7 +151,7 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
 	std::string user;
 	std::string host;
     for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {
-		if ((*it)->getNick() == nick){
+		if (*it && (*it)->getNick() == nick){
 			user = (*it)->getUsername();
 			host = (*it)->getHost();
 		}
@@ -204,8 +203,8 @@ void Server::clientPoolErase(int clientSocket)
 {
 	for (std::vector<Client*>::iterator it = clientPool.begin(); it != clientPool.end(); ++it) {
 		if ((*it)->getSocket() == clientSocket) {
-			clientPool.erase(it);
 			delete *it;
+			clientPool.erase(it);
 			return ;
 		}
 	}

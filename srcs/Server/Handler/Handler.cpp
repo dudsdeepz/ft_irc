@@ -34,7 +34,7 @@ void Handler::capCommand(Client *client)
 
 void Handler::quitSignal(Client* client)
 {
-	if (!client->getNick().empty())
+	if (client && !client->getNick().empty())
 	{
 		client->clientQUittingMsg();
 		std::cout << "Client disconnected: " << (client)->getNick() << std::endl;

@@ -8,7 +8,7 @@ void Handler::usernameCommand(Client *client)
 	std::string buffers;
 	while (iss >> buffers)
 		buffer.push_back(buffers);
-	if (buffer.size() < 5)
+	if (buffer.size() < 2)
 	{
 		std::string error = ":server 461 * USER :Not enough parameters\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
@@ -23,12 +23,6 @@ void Handler::usernameCommand(Client *client)
 	if (Server::isUserInUse(buffer[1]))
 	{
 		std::string error = ":server 462 " + client->getNick() + " :You may not register\r\n";
-		send(client->getSocket(), error.c_str(), error.size(), 0);
-		return ;
-	}
-	if (buffer[2] != "0" || buffer[3] != "*" || buffer[4][0] != ':')
-	{
-		std::string error = ":server 421 USER : USAGE: USER <username> 0 * :<realname>\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}

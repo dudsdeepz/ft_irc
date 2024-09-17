@@ -63,9 +63,11 @@ Client::Client(const Client &client){
 
 
 void Client::clientQUittingMsg(){
-    std::string message = ":" + nick + "!" + username + "@" + host + " " + "QUIT :Quit: Leaving" + "\r\n";
+	std::string message;
+	if (!nick.empty())
+   		message = ":" + nick + "!" + username + "@" + host + " " + "QUIT :Quit: Leaving" + "\r\n";
 	std::cout << message << std::endl;
-	for(std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); it++)
+	for(std::vector<std::string>::iterator it = channels.begin(); it != channels.end(); ++it)
 	{
 		Channel* tempChannel = Server::getChannel(*it);
 		if (tempChannel->isOperator(nick))
