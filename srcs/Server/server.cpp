@@ -159,6 +159,7 @@ void Server::sendMessageToChannel(const std::string& nick, const std::string& me
     std::string fullMessage = ":" + nick + "!" + user + "@" + host + " " + message + "\r\n";
 	if (channelName.find("#") != std::string::npos)
 	{
+		std::cout << fullMessage << std::endl;
 		if (!Server::findClientByName(nick)->isInChannel(channelName))
 			return ;
 		for (std::vector<Client *>::iterator it = clientPool.begin(); it != clientPool.end(); it++) {

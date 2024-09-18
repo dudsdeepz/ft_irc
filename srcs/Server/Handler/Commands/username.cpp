@@ -8,15 +8,9 @@ void Handler::usernameCommand(Client *client)
 	std::string buffers;
 	while (iss >> buffers)
 		buffer.push_back(buffers);
-	if (buffer.size() < 2)
+	if (buffer.size() <= 1)
 	{
 		std::string error = ":server 461 * USER :Not enough parameters\r\n";
-		send(client->getSocket(), error.c_str(), error.size(), 0);
-		return;
-	}
-	if (buffer.size() > 5)
-	{
-		std::string error = ":server 461 * USER :Too many parameters\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return;
 	}
@@ -26,7 +20,5 @@ void Handler::usernameCommand(Client *client)
 		send(client->getSocket(), error.c_str(), error.size(), 0);
 		return ;
 	}
-	std::string name = message.substr(message.find("USER") + 4, message.find("0"));
-	name.erase(std::remove(name.begin(), name.end(), ' '), name.end());
-	client->setUsername(name.substr(0, name.find("0")));
+	client->setUsername(buffer[1]);
 }

@@ -25,10 +25,6 @@ int main(int ac, char **av)
 					else
 						server.processData(i);
 				}
-				else if (server.getEvents()[i].data.fd && EPOLLERR)
-					continue ;
-				else if (server.getEvents()[i].data.fd && EPOLLOUT)
-					continue ;
 			}
 		}
 	}
