@@ -18,7 +18,6 @@ void Handler::registerCommands()
 	handler["INVITE"] = invCommand;
 	handler["PART"] = partCommand;
 	handler["MODE"] = modeCommand;
-
 }
 
 void Handler::privmsgCommand(Client *client)

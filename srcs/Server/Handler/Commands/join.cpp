@@ -14,7 +14,7 @@ void Handler::joinCommand(Client* client)
 	std::string channelName;
 	iss >> buffer;
 	iss >> channelName;
-	if (channelName[0] != '#')
+	if (channelName[0] != '#' || channelName.find(',') != std::string::npos)
 	{
 		std::string error = ":server 403 " + client->getNick() + " " + channelName + " :Invalid channel name\r\n";
 		send(client->getSocket(), error.c_str(), error.size(), 0);

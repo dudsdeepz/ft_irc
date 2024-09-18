@@ -287,13 +287,3 @@ void Server::ctrlChandler(int signum){
 	close(serverSocket);
 	exit(signum);
 }
-
-void Server::sendData(int i){
-	int clientSocket = getEventFd(i);
-	Client* client = findClientBySocket(clientSocket);
-	if (!client)
-		return;
-	char buffer[2024];
-	recv(events[i].data.fd, buffer, sizeof(buffer) - 1, 0);
-	client->appendData(buffer);
-}
